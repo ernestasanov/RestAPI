@@ -7,7 +7,7 @@
     tools:context=".MainActivity">
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/personList"
+        android:id="@+id/apiList"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -16,10 +16,6 @@
         app:layout_constraintTop_toTopOf="parent" />
     <TextView
         android:id="@+id/responseView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-    <WebView
-        android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 

@@ -1,34 +1,38 @@
 package com.learning.restapi
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.webkit.WebView
 import android.widget.TextView
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.android.volley.Request
-import com.android.volley.Response
+import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import org.json.JSONObject
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+
 
 class MainActivity : AppCompatActivity() {
 
-    private var personListRecyclerView: RecyclerView? = null
+    private var apiAdapter: ApiAdapter? = null
+    private var apiListRecyclerView: RecyclerView? = null
     private var responseTextView: TextView? = null
-    private var webView: WebView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         responseTextView = findViewById(R.id.responseView)
-        webView = findViewById(R.id.webView)
-        val personListView : RecyclerView = findViewById(R.id.personList)
-        personListView.layoutManager = LinearLayoutManager(this)
+        val apiListView : RecyclerView = findViewById(R.id.apiList)
+        apiListView.layoutManager = LinearLayoutManager(this)
 
         val queue = Volley.newRequestQueue(this)
-        val personRequest = StringRequest(
-            Request.Method.GET, "http://numbersapi.com/76/math",
+        val plainRequest = StringRequest(
+            Request.Method.GET, "https://api.publicapis.org/entries?category=animals",
             { response: String ->
                 responseTextView?.text = response
             },
@@ -36,14 +40,58 @@ class MainActivity : AppCompatActivity() {
                 responseTextView?.text = error.localizedMessage
             }
         )
-        queue.add(personRequest)
+        //queue.add(plainRequest)
 
-        var personAdapter = PersonAdapter(emptyList())
-        personListView.adapter = personAdapter
-        personAdapter.notifyDataSetChanged()
-        personListRecyclerView = personListView
+        val jsonObjectRequest = JsonObjectRequest(
+            Request.Method.GET, "https://api.publicapis.org/entries?category=animals",
+            null, { jsonResponse: JSONObject ->
+                val count = jsonResponse.getInt("count")
+                val entries = jsonResponse.getJSONArray("entries")
+                val apiList: MutableList<Api> = mutableListOf()
+                for (i in 0 until count) {
+                    val apiEntry = entries.getJSONObject(i)
+                    val API = apiEntry.getString("API")
+                    val Description = apiEntry.getString("Description")
+                    val Auth = apiEntry.getString("Auth")
+                    val HTTPS = apiEntry.getBoolean("HTTPS")
+                    val Cors = apiEntry.getString("Cors")
+                    val Link = apiEntry.getString("Link")
+                    val Category = apiEntry.getString("Category")
+                    val api = Api(API, Description, Auth, HTTPS, Cors, Link, Category)
+                    apiList.add(api)
+                }
+                apiAdapter?.apiList = apiList
+                apiAdapter?.notifyDataSetChanged()
+            }, { err ->
 
-        webView?.loadUrl("http://numbersapi.com/76/math")
-        webView?.settings?.javaScriptEnabled = true
+            }
+        )
+        //queue.add(jsonObjectRequest)
+
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://api.publicapis.org")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        val service = retrofit.create(ApiService::class.java)
+        val request : Call<ApiEntries> = service.listApis("animals")
+        request.enqueue(object : Callback<ApiEntries> {
+            override fun onResponse(call: Call<ApiEntries>, response: Response<ApiEntries>) {
+                val entries = response.body()?.entries
+                if (entries != null) {
+                    apiAdapter?.apiList = entries
+                }
+                apiAdapter?.notifyDataSetChanged()
+            }
+
+            override fun onFailure(call: Call<ApiEntries>, t: Throwable) {
+                responseTextView?.text = t.localizedMessage
+            }
+        })
+
+        val adapter = ApiAdapter(emptyList())
+        apiListView.adapter = adapter
+        apiAdapter = adapter
+        apiListRecyclerView = apiListView
     }
 }
