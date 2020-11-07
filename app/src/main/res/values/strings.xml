@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">RestAPI</string>
+    <string name="dispose">Dispose</string>
 </resources>

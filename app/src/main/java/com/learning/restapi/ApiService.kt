@@ -1,15 +1,14 @@
 package com.learning.restapi
 
-import retrofit2.Call
+import io.reactivex.Single
 import retrofit2.http.GET
-import retrofit2.http.Query
-
-class ApiEntries(
-    val count: Int,
-    val entries: List<Api>
-)
+import retrofit2.http.Path
 
 interface ApiService {
-    @GET("entries")
-    fun listApis(@Query("category") category: String): Call<ApiEntries>
+
+    @GET("users/{user}/repos")
+    fun getStarredRepos(@Path("user") userName: String): Single<List<Int>>
+
+    // List<Int>
+    fun getRepo(id: Int): Single<Api>
 }

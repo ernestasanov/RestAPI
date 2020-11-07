@@ -1,24 +1,27 @@
 package com.learning.restapi
 
 import android.os.Bundle
+import android.util.Log
+import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.android.volley.Request
-import com.android.volley.toolbox.JsonObjectRequest
-import com.android.volley.toolbox.StringRequest
-import com.android.volley.toolbox.Volley
-import org.json.JSONObject
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import com.google.gson.FieldNamingPolicy
+import com.google.gson.GsonBuilder
+import io.reactivex.Observable
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.Disposable
+import io.reactivex.schedulers.Schedulers
 import retrofit2.Retrofit
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
 import retrofit2.converter.gson.GsonConverterFactory
 
 
 class MainActivity : AppCompatActivity() {
 
+    private var disposable: Disposable? = null
     private var apiAdapter: ApiAdapter? = null
     private var apiListRecyclerView: RecyclerView? = null
     private var responseTextView: TextView? = null
@@ -30,64 +33,47 @@ class MainActivity : AppCompatActivity() {
         val apiListView : RecyclerView = findViewById(R.id.apiList)
         apiListView.layoutManager = LinearLayoutManager(this)
 
-        val queue = Volley.newRequestQueue(this)
-        val plainRequest = StringRequest(
-            Request.Method.GET, "https://api.publicapis.org/entries?category=animals",
-            { response: String ->
-                responseTextView?.text = response
-            },
-            { error ->
-                responseTextView?.text = error.localizedMessage
-            }
-        )
-        //queue.add(plainRequest)
-
-        val jsonObjectRequest = JsonObjectRequest(
-            Request.Method.GET, "https://api.publicapis.org/entries?category=animals",
-            null, { jsonResponse: JSONObject ->
-                val count = jsonResponse.getInt("count")
-                val entries = jsonResponse.getJSONArray("entries")
-                val apiList: MutableList<Api> = mutableListOf()
-                for (i in 0 until count) {
-                    val apiEntry = entries.getJSONObject(i)
-                    val API = apiEntry.getString("API")
-                    val Description = apiEntry.getString("Description")
-                    val Auth = apiEntry.getString("Auth")
-                    val HTTPS = apiEntry.getBoolean("HTTPS")
-                    val Cors = apiEntry.getString("Cors")
-                    val Link = apiEntry.getString("Link")
-                    val Category = apiEntry.getString("Category")
-                    val api = Api(API, Description, Auth, HTTPS, Cors, Link, Category)
-                    apiList.add(api)
+        /*val observable = Observable.range(1, 1000000) // observable
+        disposable = observable
+            .toFlowable(BackpressureStrategy.ERROR)
+            .subscribeOn(Schedulers.computation())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                { value -> // observer
+                    Log.d("RxJava", value.toString())
+                }, { error ->
+                    Log.d("RxJava", "error", error)
+                }, {
+                    Log.d("RxJava", "finish")
                 }
-                apiAdapter?.apiList = apiList
-                apiAdapter?.notifyDataSetChanged()
-            }, { err ->
+            )*/
 
-            }
-        )
-        //queue.add(jsonObjectRequest)
+        val disposeButton = findViewById<Button>(R.id.disposeButton)
+        disposeButton.setOnClickListener {
+            disposable?.dispose()
+        }
+        val gson = GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+            .create()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("https://api.publicapis.org")
-            .addConverterFactory(GsonConverterFactory.create())
+            .baseUrl("https://api.github.com/")
+            .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
 
         val service = retrofit.create(ApiService::class.java)
-        val request : Call<ApiEntries> = service.listApis("animals")
-        request.enqueue(object : Callback<ApiEntries> {
-            override fun onResponse(call: Call<ApiEntries>, response: Response<ApiEntries>) {
-                val entries = response.body()?.entries
-                if (entries != null) {
-                    apiAdapter?.apiList = entries
-                }
+        disposable = service.getStarredRepos("ernestasanov")
+            .flatMapObservable { Observable.fromIterable(it) }
+            .flatMapSingle { service.getRepo(it) }
+            .toList()
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                apiAdapter?.apiList = it
                 apiAdapter?.notifyDataSetChanged()
-            }
-
-            override fun onFailure(call: Call<ApiEntries>, t: Throwable) {
-                responseTextView?.text = t.localizedMessage
-            }
-        })
+            }, {
+                responseTextView?.text = it.localizedMessage
+            })
 
         val adapter = ApiAdapter(emptyList())
         apiListView.adapter = adapter

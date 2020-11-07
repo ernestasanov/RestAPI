@@ -1,11 +1,10 @@
 package com.learning.restapi
 
-class Api(
-    val API: String,
-    val Description: String,
-    val Auth: String,
-    val HTTPS: Boolean,
-    val Cors: String,
-    val Link: String,
-    val Category: String
+data class Api(
+    val id: Int,
+    val name: String,
+    val htmlUrl: String,
+    val description: String,
+    val language: String,
+    val stargazersCount: Int
 )
